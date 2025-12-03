@@ -1,6 +1,14 @@
-# Base Repository
+# ManualsGraph
 
-This is a base repository for Xelerit projects.
+**From Manuals to Troubleshooting Graphs: Generative Knowledge Extraction for Industrial Maintenance**
+
+This repository accompanies an academic paper: [ManualsGraph](https://www.overleaf.com/project/692dde1e0ee444c08e101d48)
+
+## Overview
+
+ManualsGraph transforms unstructured industrial machine manuals into structured causal knowledge graphs that enable real-time fault diagnosis and automated repair guidance. We extract "symptom → root cause → fix" relationships from technical documents to power lightweight, interpretable classifiers deployable on edge devices.
+
+The project combines classical parsing algorithms with transformer-based NLP to handle complex, semi-structured manuals at scale (1M+ documents), enabling similarity search, causal reasoning, and transfer learning across similar machines.
 
 ## Getting Started
 
