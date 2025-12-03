@@ -54,4 +54,16 @@ This repository uses [pre-commit](https://pre-commit.com/) to enforce code style
     pre-commit run --all-files
     ``` 
 
-For more details on code style and pre-commit hooks, see the [documentation](docs/index.md). 
+For more details on code style and pre-commit hooks, see the [documentation](docs/index.md).
+
+## Download from Internet Archive
+
+You can download manuals from internet archive with the following script
+
+```bash
+python scripts/download_from_internet_archive.py --count 1000 --output-dir manuals --workers 5 
+```
+Parameters:
+ * **count**: Number of manuals we want to download
+ * **output-dir**: Path of output directory
+ * **workers**: Number of thread to parallelize the process 
