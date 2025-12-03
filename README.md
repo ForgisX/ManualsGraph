@@ -66,6 +66,47 @@ mkdocs serve
 
 Then open your browser to `http://127.0.0.1:8000`. 
 
+## PDF Processing Pipeline
+
+### Sort and Classify PDFs
+
+The project includes an AI-powered pipeline to sort and classify industrial manufacturing manuals:
+
+```bash
+# Process first 100 PDFs (default, cost-effective for testing)
+python scripts/sort_pdfs.py
+
+# Process specific number of PDFs
+python scripts/sort_pdfs.py --max-pdfs 500
+
+# Process all PDFs (use with caution - can be expensive!)
+python scripts/sort_pdfs.py --max-pdfs -1
+
+# Skip AI classification (only digital vs scanned)
+python scripts/sort_pdfs.py --skip-ai
+```
+
+**What it does:**
+- **Stage 1**: Classifies PDFs as digital (text-extractable) or scanned (needs OCR)
+- **Stage 2**: Filters digital PDFs by manufacturing relevance using AI
+- **Stage 3**: Extracts machine metadata (manufacturer, model, type)
+- **Stage 4**: Organizes into structured folders: `manuals/sorted_pdfs/digital/manufacturing/{OEM}/{Machine}/`
+- **Stage 5**: Maintains JSON databases in `config-manuals-structure/` for OEMs, factory modules, and machines
+
+The pipeline shows real-time cost tracking and can be safely interrupted and resumed.
+
+### Download from Internet Archive
+
+You can download manuals from internet archive with the following script
+
+```bash
+python scripts/download_from_internet_archive.py --count 1000 --output-dir manuals --workers 5 
+```
+Parameters:
+ * **count**: Number of manuals we want to download
+ * **output-dir**: Path of output directory
+ * **workers**: Number of thread to parallelize the process 
+
 ## Code Style and Pre-commit Hooks
 
 This repository uses [pre-commit](https://pre-commit.com/) to enforce code style with Black, isort, and flake8.

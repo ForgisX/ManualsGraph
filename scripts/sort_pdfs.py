@@ -15,13 +15,14 @@ Maintains JSON databases:
 
 Folder structure:
 manuals/
-  sorted_pdfs/
+    ...original sources...
+sorted_manuals/
     digital/
-      manufacturing/
-        {OEM}/
-          {Machine}/
-            manual.pdf
-      other/
+        manufacturing/
+            {OEM}/
+                {Machine}/
+                    manual.pdf
+        other/
     scanned/
 """
 
@@ -57,7 +58,7 @@ MACHINES_JSON = CONFIG_DIR / "machines.json"
 MIN_TEXT_RATIO = 0.3  # At least 30% of pages must have extractable text
 MIN_CHARS_PER_PAGE = 100  # Minimum characters per page to count as "has text"
 MAX_PAGES_TO_SAMPLE = 10  # Sample first N pages for classification
-METADATA_TEXT_LENGTH = 3000  # Characters to send to AI for classification
+METADATA_TEXT_LENGTH = 4096  # Characters to send to AI for classification (reduced to save tokens)
 
 # Fuzzy matching threshold for OEM names
 OEM_MATCH_THRESHOLD = 0.8  # 80% similarity required
@@ -119,37 +120,16 @@ def current_cost_estimate(tracker: TokenTracker) -> dict:
 
 # --- Pydantic Models for AI Extraction ---
 
-class ManufacturingRelevance(BaseModel):
-    """Assessment of PDF relevance to industrial manufacturing."""
-    is_manufacturing: bool = Field(description="Whether this PDF is related to industrial manufacturing equipment")
-    confidence: float = Field(description="Confidence score from 0.0 to 1.0")
-    reasoning: str = Field(description="Brief explanation of the decision")
-    document_type: str = Field(description="Type of document (e.g., service manual, parts catalog, advertisement, user guide)")
-
-
-class MachineMetadata(BaseModel):
-    """Extracted machine information from PDF."""
-    manufacturer: str = Field(description="Equipment manufacturer/OEM (e.g., 'ABB', 'Siemens', 'Fanuc')")
-    model: str = Field(description="Specific model number or name (e.g., 'IRB 6700', 'S7-1500')")
-    series: Optional[str] = Field(description="Product series if applicable (e.g., 'IRB', 'S7')")
-    description: str = Field(description="Brief description of the equipment (1-2 sentences)")
-    factory_module_suggestion: str = Field(description="Suggested factory module category (e.g., 'robotics', 'plc_control', 'drives_motors')")
-    machine_type: str = Field(description="Type of machine (e.g., 'industrial robot', 'PLC', 'servo drive')")
-
-
-class NewOEMProposal(BaseModel):
-    """Proposal for a new OEM to add to the database."""
-    name: str = Field(description="Official company name")
-    aliases: List[str] = Field(description="Common variations/abbreviations of the name")
-    description: str = Field(description="Brief description of what this company makes")
-
-
-class NewModuleProposal(BaseModel):
-    """Proposal for a new factory module to add to the taxonomy."""
-    id: str = Field(description="Unique ID for the module (lowercase, underscores)")
-    name: str = Field(description="Display name for the module")
-    description: str = Field(description="What this module category represents")
-    keywords: List[str] = Field(description="Keywords associated with this module type")
+class ClassificationResult(BaseModel):
+    """Single-shot classification result for a PDF."""
+    is_manufacturing: bool = Field(description="True if related to industrial manufacturing equipment, False otherwise")
+    manufacturer: Optional[str] = Field(default=None, description="OEM/manufacturer name if manufacturing-related, else None")
+    is_new_oem: bool = Field(default=False, description="True if this OEM is not in the known list")
+    model: Optional[str] = Field(default=None, description="Machine model/number if found")
+    is_new_machine: bool = Field(default=False, description="True if this machine model is new (not in existing registry)")
+    machine_type: Optional[str] = Field(default=None, description="Type of machine (e.g., 'robot', 'PLC', 'drive')")
+    factory_module: Optional[str] = Field(default=None, description="Matched factory module ID from known list, or suggestion if new")
+    reasoning: str = Field(description="Brief reasoning for classification")
 
 
 # --- JSON Database Management ---
@@ -468,74 +448,46 @@ def extract_pdf_text_sample(pdf_path: Path, max_chars: int = METADATA_TEXT_LENGT
         return f"[Error extracting text: {e}]"
 
 
-def assess_manufacturing_relevance(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker) -> ManufacturingRelevance:
-    """Use AI to determine if PDF is relevant to industrial manufacturing."""
+def classify_pdf_single_shot(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker, oems_db: Dict, modules_db: Dict) -> ClassificationResult:
+    """Single-shot classification: relevance, OEM, machine, and module in one AI call."""
     text_sample = extract_pdf_text_sample(pdf_path)
     
-    prompt = f"""Analyze this PDF excerpt and determine if it relates to industrial manufacturing equipment.
+    # Build known OEM list
+    known_oems = [oem["name"] for oem in oems_db.get("manufacturers", [])]
+    oem_list_str = ", ".join(known_oems[:20]) if known_oems else "(none)"
+    
+    # Build known module list
+    known_modules = [m["id"] for m in modules_db.get("modules", [])]
+    module_list_str = ", ".join(known_modules) if known_modules else "(none)"
+    
+    prompt = f"""Classify this PDF for an industrial manufacturing equipment database.
 
-Industrial manufacturing includes: robots, CNCs, PLCs, conveyors, assembly machines, presses, 
-packaging equipment, inspection systems, drives, motors, controllers, sensors, etc.
+1. Is it manufacturing-related? (robots, CNCs, PLCs, drives, conveyors, presses, sensors, etc.)
+2. If YES: Extract manufacturer (OEM) and machine model. Check if OEM is in known list: [{oem_list_str}]. Set is_new_oem=True if not found.
+3. Extract machine type and match to module: [{module_list_str}].
+4. If NOT manufacturing: set is_manufacturing=False, leave fields empty.
 
-NOT manufacturing: consumer products, cars (unless factory equipment), personal electronics, 
-software, business documents, catalogs without technical specs, advertisements.
-
-PDF Text Sample:
+PDF excerpt:
 {text_sample}
 
-Classify this document."""
+Classify concisely."""
     
     try:
         program = LLMTextCompletionProgram.from_defaults(
-            output_cls=ManufacturingRelevance,
+            output_cls=ClassificationResult,
             llm=llm,
             prompt_template_str=prompt,
             verbose=False
         )
         result = program()
-        tracker.record("manufacturing_relevance", prompt, str(result))
+        tracker.record("classify_single_shot", prompt, str(result))
         return result
     except Exception as e:
-        print(f"    AI assessment failed: {e}")
-        # Default to not manufacturing if AI fails
-        return ManufacturingRelevance(
+        print(f"Classification failed: {e}")
+        return ClassificationResult(
             is_manufacturing=False,
-            confidence=0.0,
-            reasoning=f"AI error: {e}",
-            document_type="unknown"
+            reasoning=f"Error: {e}"
         )
-
-
-def extract_machine_metadata(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker) -> Optional[MachineMetadata]:
-    """Extract machine metadata using AI."""
-    text_sample = extract_pdf_text_sample(pdf_path)
-    
-    prompt = f"""Extract machine/equipment information from this PDF.
-
-Focus on:
-- Manufacturer/OEM (e.g., ABB, Siemens, Fanuc)
-- Model number (e.g., IRB 6700, S7-1500)
-- Equipment type and purpose
-- Which factory module it belongs to
-
-PDF Text Sample:
-{text_sample}
-
-Extract structured metadata."""
-    
-    try:
-        program = LLMTextCompletionProgram.from_defaults(
-            output_cls=MachineMetadata,
-            llm=llm,
-            prompt_template_str=prompt,
-            verbose=False
-        )
-        result = program()
-        tracker.record("machine_metadata", prompt, str(result))
-        return result
-    except Exception as e:
-        print(f"    Metadata extraction failed: {e}")
-        return None
 
 
 # --- File Organization Functions ---
@@ -544,15 +496,15 @@ def is_fully_sorted(pdf_path: Path, manuals_dir: Path) -> bool:
     """
     Check if PDF is fully sorted (in OEM/Machine folder structure).
     """
-    try:
-        rel_path = pdf_path.relative_to(manuals_dir)
-        parts = rel_path.parts
-        
-        # Fully sorted path: sorted_pdfs/digital/manufacturing/{OEM}/{Machine}/file.pdf
-        if len(parts) >= 5 and parts[0] == "sorted_pdfs" and parts[1] == "digital" and parts[2] == "manufacturing":
-            return True
-    except:
-        pass
+    # Check absolute path parts for sorted_manuals structure (outside manuals folder)
+    parts = pdf_path.parts
+    for i, part in enumerate(parts):
+        if part == "sorted_manuals":
+            # Expect: sorted_manuals/digital/manufacturing/{OEM}/{Machine}/file.pdf
+            if i + 3 < len(parts):
+                if parts[i+1] == "digital" and parts[i+2] == "manufacturing":
+                    return True
+            break
     
     return False
 
@@ -571,19 +523,57 @@ def find_all_pdfs(root_dir: Path, manuals_dir: Path, skip_fully_sorted: bool = T
     return all_pdfs
 
 
+def find_pending_sorted_manuals(manuals_dir: Path) -> List[Path]:
+    """Find PDFs in sorted_manuals/digital that are not fully processed yet.
+    Pending means: files under sorted_manuals/digital/ that are NOT in
+    - sorted_manuals/digital/other/
+    - sorted_manuals/digital/manufacturing/{OEM}/{Machine}/
+    """
+    sorted_base = manuals_dir.parent / "sorted_manuals" / "digital"
+    if not sorted_base.exists():
+        return []
+    candidates = list(sorted_base.rglob("*.pdf")) + list(sorted_base.rglob("*.PDF"))
+    pending: List[Path] = []
+    for pdf in candidates:
+        parts = pdf.parts
+        try:
+            idx = parts.index("sorted_manuals")
+        except ValueError:
+            # Not under sorted_manuals; skip
+            continue
+        # Structure after idx: [sorted_manuals, digital, ...]
+        if idx + 1 < len(parts) and parts[idx+1] == "digital":
+            # If under other -> skip
+            if idx + 2 < len(parts) and parts[idx+2] == "other":
+                continue
+            # If under manufacturing/{OEM}/{Machine} -> skip fully processed
+            if idx + 2 < len(parts) and parts[idx+2] == "manufacturing":
+                # Check if it has at least OEM/machine layers
+                if idx + 4 < len(parts):
+                    # Consider fully processed; skip
+                    continue
+                # Else it's under manufacturing but not in OEM/machine yet -> pending
+                pending.append(pdf)
+                continue
+            # Files directly under digital or other subfolders -> pending
+            pending.append(pdf)
+    return pending
+
+
 def organize_pdf(pdf_path: Path, manuals_dir: Path, stage: str, **kwargs) -> Path:
     """
     Move PDF to appropriate folder based on classification stage.
     
     Stages:
-    - 'scanned': sorted_pdfs/scanned/
-    - 'digital': sorted_pdfs/digital/
-    - 'other': sorted_pdfs/digital/other/
-    - 'manufacturing': sorted_pdfs/digital/manufacturing/
-    - 'oem': sorted_pdfs/digital/manufacturing/{OEM}/
-    - 'machine': sorted_pdfs/digital/manufacturing/{OEM}/{Machine}/
+    - 'scanned': sorted_manuals/scanned/
+    - 'digital': sorted_manuals/digital/
+    - 'other': sorted_manuals/digital/other/
+    - 'manufacturing': sorted_manuals/digital/manufacturing/
+    - 'oem': sorted_manuals/digital/manufacturing/{OEM}/
+    - 'machine': sorted_manuals/digital/manufacturing/{OEM}/{Machine}/
     """
-    sorted_base = manuals_dir / "sorted_pdfs"
+    # Place sorted outputs outside the manuals folder for visibility
+    sorted_base = manuals_dir.parent / "sorted_manuals"
     
     if stage == "scanned":
         dest_dir = sorted_base / "scanned"
@@ -618,25 +608,59 @@ def organize_pdf(pdf_path: Path, manuals_dir: Path, stage: str, **kwargs) -> Pat
     # Move file
     if pdf_path != dest_path:
         shutil.move(str(pdf_path), str(dest_path))
+        # Log save location
+        try:
+            print(f"Saved: {pdf_path.name} -> {dest_path}")
+        except Exception:
+            pass
+        # Clean up empty source directories inside manuals after move
+        try:
+            src_dir = pdf_path.parent
+            manuals_root = manuals_dir
+            # Only attempt cleanup if source is under manuals_dir
+            if str(src_dir).startswith(str(manuals_root)):
+                while src_dir != manuals_root and src_dir.exists():
+                    # Stop if directory not empty
+                    if any(src_dir.iterdir()):
+                        break
+                    src_dir.rmdir()
+                    src_dir = src_dir.parent
+        except Exception:
+            # Ignore cleanup errors silently
+            pass
     
     return dest_path
 
 
 # --- Main Pipeline ---
 
-def process_pdf_pipeline(pdf_path: Path, manuals_dir: Path, llm: Optional[AzureOpenAI], tracker: TokenTracker, stats: Dict):
+def _format_desc(name: str, width: int = 40) -> str:
+    """Create a fixed-width description to avoid tqdm bar jumping."""
+    safe = (name or "")
+    if len(safe) > width:
+        safe = safe[:width-1] + "…"
+    return f"{safe:<{width}}"
+
+def _format_postfix(cost: float, tokens: int, width: int = 28) -> str:
+    """Create a compact fixed-width postfix string for tqdm."""
+    txt = f"Cost: ${cost:.4f} | Tok: {tokens:,}"
+    if len(txt) > width:
+        txt = txt[:width-1] + "…"
+    return f"{txt:<{width}}"
+
+def process_pdf_pipeline(pdf_path: Path, manuals_dir: Path, llm: Optional[AzureOpenAI], tracker: TokenTracker, stats: Dict, pbar: Optional[tqdm] = None):
     """
-    Complete processing pipeline for a single PDF.
+    Simplified processing pipeline using single-shot AI classification.
     """
     try:
-        print(f"\n📄 {pdf_path.name}")
+        if pbar:
+            pbar.set_description(_format_desc(f"Processing: {pdf_path.name}"))
         
         # Stage 1: Digital vs Scanned
         classification, metadata = classify_pdf_digital_scanned(pdf_path)
-        print(f"  └─ Classification: {classification} (text ratio: {metadata.get('text_ratio', 0):.0%})")
         
         if classification == "scanned":
-            new_path = organize_pdf(pdf_path, manuals_dir, "scanned")
+            organize_pdf(pdf_path, manuals_dir, "scanned")
             stats["scanned"] += 1
             return
         
@@ -648,78 +672,71 @@ def process_pdf_pipeline(pdf_path: Path, manuals_dir: Path, llm: Optional[AzureO
             stats["digital_unprocessed"] += 1
             return
         
-        # Stage 2: Manufacturing Relevance
-        relevance = assess_manufacturing_relevance(pdf_path, llm, tracker)
-        print(f"  └─ Manufacturing: {'✅ Yes' if relevance.is_manufacturing else '❌ No'} ({relevance.confidence:.0%} confidence)")
-        print(f"     Type: {relevance.document_type}")
+        # Load databases for single-shot classification
+        oems_db = load_json_db(OEMS_JSON)
+        modules_db = load_json_db(MODULES_JSON)
         
-        if not relevance.is_manufacturing:
-            new_path = organize_pdf(pdf_path, manuals_dir, "other")
+        # Stage 2: Single-shot AI classification (relevance + OEM + machine + module)
+        result = classify_pdf_single_shot(pdf_path, llm, tracker, oems_db, modules_db)
+        
+        # Not manufacturing -> move to other
+        if not result.is_manufacturing:
+            organize_pdf(pdf_path, manuals_dir, "other")
             stats["other"] += 1
             return
         
         stats["manufacturing"] += 1
         
-        # Stage 3: Extract Machine Metadata
-        machine_meta = extract_machine_metadata(pdf_path, llm, tracker)
-        
-        if not machine_meta or not machine_meta.manufacturer:
-            print(f"  └─ ⚠️ Could not extract manufacturer, moving to manufacturing/ folder")
+        # No manufacturer found -> generic manufacturing folder
+        if not result.manufacturer:
             organize_pdf(pdf_path, manuals_dir, "manufacturing")
             stats["manufacturing_no_oem"] += 1
             return
         
-        print(f"  └─ Machine: {machine_meta.manufacturer} {machine_meta.model}")
-        print(f"     Type: {machine_meta.machine_type}")
+        # Update progress bar with OEM/Model
+        if pbar:
+            pbar.set_description(_format_desc(f"{result.manufacturer} {result.model or 'unknown'}"))
         
-        # Stage 4: Match/Add OEM
-        oems_db = load_json_db(OEMS_JSON)
-        matched_oem = fuzzy_match_oem(machine_meta.manufacturer, oems_db)
-        
-        if matched_oem:
-            oem_id = matched_oem["id"]
-            oem_name = matched_oem["name"]
-            print(f"  └─ Matched OEM: {oem_name}")
+        # Stage 3: Handle OEM (new or existing)
+        if result.is_new_oem:
+            # Auto-add new OEM without prompting
+            oem_id = re.sub(r'[^a-z0-9]+', '_', result.manufacturer.lower()).strip('_')
+            new_oem = {
+                "id": oem_id,
+                "name": result.manufacturer,
+                "aliases": [],
+                "description": f"Auto-added: {result.machine_type or 'manufacturing equipment'}"
+            }
+            if "manufacturers" not in oems_db:
+                oems_db["manufacturers"] = []
+            oems_db["manufacturers"].append(new_oem)
+            oems_db["metadata"]["total_manufacturers"] = len(oems_db["manufacturers"])
+            oems_db["metadata"]["last_updated"] = datetime.now().isoformat()
+            save_json_db(OEMS_JSON, oems_db)
+            stats["new_oems"] += 1
         else:
-            # Prompt for new OEM
-            new_oem = prompt_user_new_oem(machine_meta.manufacturer, llm, tracker)
-            if new_oem:
-                if "manufacturers" not in oems_db:
-                    oems_db["manufacturers"] = []
-                oems_db["manufacturers"].append(new_oem)
-                oems_db["metadata"]["total_manufacturers"] = len(oems_db["manufacturers"])
-                oems_db["metadata"]["last_updated"] = datetime.now().isoformat()
-                save_json_db(OEMS_JSON, oems_db)
-                
-                oem_id = new_oem["id"]
-                oem_name = new_oem["name"]
-                stats["new_oems"] += 1
+            # Match existing OEM
+            matched_oem = fuzzy_match_oem(result.manufacturer, oems_db)
+            if matched_oem:
+                oem_id = matched_oem["id"]
+                result.manufacturer = matched_oem["name"]  # Use canonical name
             else:
-                print(f"  └─ ⚠️ OEM not added, moving to manufacturing/ folder")
-                organize_pdf(pdf_path, manuals_dir, "manufacturing")
-                stats["manufacturing_no_oem"] += 1
-                return
+                # Fallback: treat as new
+                oem_id = re.sub(r'[^a-z0-9]+', '_', result.manufacturer.lower()).strip('_')
         
-        # Stage 5: Match Factory Module
-        modules_db = load_json_db(MODULES_JSON)
-        factory_module = match_factory_module(machine_meta.factory_module_suggestion, modules_db, llm, tracker)
+        # Stage 4: Organize into OEM/Machine folder
+        machine_folder_name = re.sub(r'[^a-zA-Z0-9_-]+', '_', (result.model or "unknown").strip()).strip('_')
+        new_path = organize_pdf(pdf_path, manuals_dir, "machine", oem=result.manufacturer, machine=machine_folder_name)
         
-        if factory_module:
-            print(f"  └─ Factory Module: {factory_module}")
-        
-        # Stage 6: Organize into OEM/Machine folder
-        machine_folder_name = re.sub(r'[^a-zA-Z0-9_-]+', '_', machine_meta.model).strip('_')
-        new_path = organize_pdf(pdf_path, manuals_dir, "machine", oem=oem_name, machine=machine_folder_name)
-        
-        # Stage 7: Update machines.json
+        # Stage 5: Update machines.json
         machine_data = {
-            "manufacturer": oem_name,
+            "manufacturer": result.manufacturer,
             "oem_id": oem_id,
-            "model": machine_meta.model,
-            "series": machine_meta.series,
-            "description": machine_meta.description,
-            "machine_type": machine_meta.machine_type,
-            "factory_module": factory_module,
+            "model": result.model or "unknown",
+            "series": None,
+            "description": result.reasoning,
+            "machine_type": result.machine_type or "unknown",
+            "factory_module": result.factory_module,
             "pages": metadata.get("total_pages", 0),
             "file_size_mb": metadata.get("file_size_mb", 0)
         }
@@ -728,7 +745,7 @@ def process_pdf_pipeline(pdf_path: Path, manuals_dir: Path, llm: Optional[AzureO
         stats["fully_sorted"] += 1
         
     except Exception as e:
-        print(f"  ❌ Error: {e}")
+        print(f"Error processing {pdf_path.name}: {e}")
         stats["errors"] += 1
 
 
@@ -741,6 +758,12 @@ def main():
         type=Path,
         default=Path(__file__).parent.parent / "manuals",
         help="Directory containing PDF files (default: ../manuals)"
+    )
+    parser.add_argument(
+        "--max-pdfs",
+        type=int,
+        default=100,
+        help="Maximum number of PDFs to process (default: 100, use -1 for all)"
     )
     parser.add_argument(
         "--skip-ai",
@@ -760,6 +783,8 @@ def main():
         return 1
     
     # Initialize
+    # Ensure output base exists outside manuals folder
+    (args.manuals_dir.parent / "sorted_manuals").mkdir(parents=True, exist_ok=True)
     tracker = TokenTracker()
     llm = None
     
@@ -787,8 +812,19 @@ def main():
     print(f"AI Classification: {'ENABLED' if llm else 'DISABLED'}")
     print(f"{'='*60}\n")
     
-    pdf_files = find_all_pdfs(args.manuals_dir, args.manuals_dir, skip_fully_sorted=True)
-    print(f"Found {len(pdf_files)} PDFs to process\n")
+    # Prioritize pending files in sorted_manuals/digital before fresh ones
+    pending_first = find_pending_sorted_manuals(args.manuals_dir)
+    pdf_files_fresh = find_all_pdfs(args.manuals_dir, args.manuals_dir, skip_fully_sorted=True)
+    # Avoid duplicates if paths overlap
+    pending_set = set(str(p) for p in pending_first)
+    combined = pending_first + [p for p in pdf_files_fresh if str(p) not in pending_set]
+    pdf_files = combined
+    
+    # Limit number of PDFs to process
+    if args.max_pdfs > 0:
+        pdf_files = pdf_files[:args.max_pdfs]
+    
+    print(f"Found {len(pdf_files)} PDFs to process")
     
     if len(pdf_files) == 0:
         print("No PDFs to process.")
@@ -811,21 +847,25 @@ def main():
     start_time = datetime.now()
     
     # Progress bar with cost tracking
-    pbar = tqdm(pdf_files, desc="Processing PDFs")
+    pbar = tqdm(
+        pdf_files,
+        desc=_format_desc("Processing PDFs"),
+        bar_format="{l_bar}{bar}{r_bar} {desc}",
+        ncols=140
+    )
     for pdf_path in pbar:
         if args.dry_run:
-            print(f"\n[DRY RUN] Would process: {pdf_path}")
+            # Update description only; do not print per-file lines
+            pbar.set_description(_format_desc(f"Dry-run: {pdf_path.name}"))
             continue
         
-        process_pdf_pipeline(pdf_path, args.manuals_dir, llm, tracker, stats)
+        process_pdf_pipeline(pdf_path, args.manuals_dir, llm, tracker, stats, pbar)
         
-        # Update progress bar with cost info
+        # Update progress bar with compact fixed-width cost info
         if llm and tracker.input_tokens > 0:
             costs = current_cost_estimate(tracker)
-            pbar.set_postfix({
-                'Cost': f"${costs['total_cost']:.4f}",
-                'Tokens': f"{tracker.input_tokens + tracker.output_tokens:,}"
-            })
+            tokens_total = tracker.input_tokens + tracker.output_tokens
+            pbar.set_postfix_str(_format_postfix(costs['total_cost'], tokens_total))
     
     end_time = datetime.now()
     

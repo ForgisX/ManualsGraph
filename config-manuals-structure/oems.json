@@ -3,67 +3,110 @@
     {
       "id": "abb",
       "name": "ABB",
-      "aliases": ["ABB Ltd", "ABB Group", "ASEA Brown Boveri"],
+      "aliases": [
+        "ABB Ltd",
+        "ABB Group",
+        "ASEA Brown Boveri"
+      ],
       "description": "Robotics, automation, power technologies"
     },
     {
       "id": "siemens",
       "name": "Siemens",
-      "aliases": ["Siemens AG", "Siemens Industry"],
+      "aliases": [
+        "Siemens AG",
+        "Siemens Industry"
+      ],
       "description": "Industrial automation, drives, PLCs"
     },
     {
       "id": "fanuc",
       "name": "Fanuc",
-      "aliases": ["FANUC Corporation", "Fanuc Robotics"],
+      "aliases": [
+        "FANUC Corporation",
+        "Fanuc Robotics"
+      ],
       "description": "CNC systems, robotics, factory automation"
     },
     {
       "id": "kuka",
       "name": "Kuka",
-      "aliases": ["KUKA AG", "KUKA Robotics"],
+      "aliases": [
+        "KUKA AG",
+        "KUKA Robotics"
+      ],
       "description": "Industrial robots and automation solutions"
     },
     {
       "id": "rockwell",
       "name": "Rockwell Automation",
-      "aliases": ["Allen-Bradley", "Rockwell", "AB"],
+      "aliases": [
+        "Allen-Bradley",
+        "Rockwell",
+        "AB"
+      ],
       "description": "Industrial automation and information solutions"
     },
     {
       "id": "schneider",
       "name": "Schneider Electric",
-      "aliases": ["Schneider", "Telemecanique"],
+      "aliases": [
+        "Schneider",
+        "Telemecanique"
+      ],
       "description": "Energy management and automation"
     },
     {
       "id": "mitsubishi",
       "name": "Mitsubishi Electric",
-      "aliases": ["Mitsubishi", "MELFA"],
+      "aliases": [
+        "Mitsubishi",
+        "MELFA"
+      ],
       "description": "Factory automation, robotics, CNC"
     },
     {
       "id": "yaskawa",
       "name": "Yaskawa",
-      "aliases": ["Yaskawa Electric", "Motoman"],
+      "aliases": [
+        "Yaskawa Electric",
+        "Motoman"
+      ],
       "description": "Servo motors, drives, robotics"
     },
     {
       "id": "omron",
       "name": "Omron",
-      "aliases": ["Omron Corporation", "Omron Automation"],
+      "aliases": [
+        "Omron Corporation",
+        "Omron Automation"
+      ],
       "description": "Industrial automation, sensors, PLCs"
     },
     {
       "id": "bosch_rexroth",
       "name": "Bosch Rexroth",
-      "aliases": ["Rexroth", "Bosch", "Bosch Rexroth AG"],
+      "aliases": [
+        "Rexroth",
+        "Bosch",
+        "Bosch Rexroth AG"
+      ],
       "description": "Drive and control technologies"
+    },
+    {
+      "id": "via_technologies_inc",
+      "name": "VIA Technologies, Inc.",
+      "aliases": [
+        "VIA",
+        "VIA Tech",
+        "VIA Technologies"
+      ],
+      "description": "VIA Technologies, Inc. is a global leader in the development of high-performance computing platforms and solutions, specializing in chipsets, processors, and embedded systems for industrial and commercial applications."
     }
   ],
   "metadata": {
-    "last_updated": "2025-12-03",
+    "last_updated": "2025-12-03T17:29:59.853490",
     "version": "1.0",
-    "total_manufacturers": 10
+    "total_manufacturers": 11
   }
 }

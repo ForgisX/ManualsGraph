@@ -1,9 +1,30 @@
 {
-  "machines": [],
+  "machines": [
+    {
+      "id": "via_technologies_inc_6522",
+      "name": "VIA Technologies, Inc. 6522",
+      "manufacturer": "VIA Technologies, Inc.",
+      "oem_id": "via_technologies_inc",
+      "model": "6522",
+      "series": null,
+      "description": "VIA 6522 is a versatile interface adapter used for diagnostic routines and verifying operations.",
+      "machine_type": "interface adapter",
+      "factory_module": "plc_control",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\VIA Technologies, Inc.\\6522\\Anatomy_Of_A_Microcomputer_Commodore_PET_text.pdf",
+          "added_date": "2025-12-03T17:29:59.866468",
+          "pages": 1,
+          "file_size_mb": 2.68
+        }
+      ],
+      "created_date": "2025-12-03T17:29:59.866468"
+    }
+  ],
   "metadata": {
-    "last_updated": "2025-12-03",
+    "last_updated": "2025-12-03T17:29:59.866468",
     "version": "1.0",
-    "total_machines": 0,
+    "total_machines": 1,
     "note": "This file will be populated automatically as PDFs are processed"
   }
 }
