@@ -3,4 +3,17 @@ mkdocs-material
 pre-commit
 black
 isort
-flake8 
+flake8
+
+# PDF Processing
+pypdf
+tqdm
+
+# Azure OpenAI and LlamaIndex
+llama-index
+llama-index-llms-azure-openai
+pydantic
+python-dotenv
+
+# Internet Archive (for scraping)
+internetarchive 
