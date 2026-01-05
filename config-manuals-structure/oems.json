@@ -102,11 +102,53 @@
         "VIA Technologies"
       ],
       "description": "VIA Technologies, Inc. is a global leader in the development of high-performance computing platforms and solutions, specializing in chipsets, processors, and embedded systems for industrial and commercial applications."
+    },
+    {
+      "id": "cedar_rapids_engineering",
+      "name": "Cedar Rapids Engineering",
+      "aliases": [],
+      "description": "Auto-added: grinding machine"
+    },
+    {
+      "id": "sri_sarada_automation_systems",
+      "name": "Sri Sarada Automation Systems",
+      "aliases": [],
+      "description": "Auto-added: form fill seal machine"
+    },
+    {
+      "id": "albertson_and_company",
+      "name": "Albertson and Company",
+      "aliases": [],
+      "description": "Auto-added: grinding kit"
+    },
+    {
+      "id": "biddle_instruments",
+      "name": "Biddle Instruments",
+      "aliases": [],
+      "description": "Auto-added: inspection"
+    },
+    {
+      "id": "loncin_motor_co_ltd",
+      "name": "Loncin Motor Co., LTD",
+      "aliases": [],
+      "description": "Auto-added: drive"
+    },
+    {
+      "id": "yokogawa_hewlett_packard",
+      "name": "Yokogawa-Hewlett-Packard",
+      "aliases": [],
+      "description": "Auto-added: semiconductor parameter analyzer"
+    },
+    {
+      "id": "liebherr_machines_bulle_s_a",
+      "name": "Liebherr-Machines-Bulle S.A.",
+      "aliases": [],
+      "description": "Auto-added: engine"
     }
   ],
   "metadata": {
-    "last_updated": "2025-12-03T17:29:59.853490",
+    "last_updated": "2025-12-03T19:59:54.286423",
     "version": "1.0",
-    "total_manufacturers": 11
+    "total_manufacturers": 18
   }
 }

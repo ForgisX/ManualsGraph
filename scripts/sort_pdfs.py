@@ -58,7 +58,8 @@ MACHINES_JSON = CONFIG_DIR / "machines.json"
 MIN_TEXT_RATIO = 0.3  # At least 30% of pages must have extractable text
 MIN_CHARS_PER_PAGE = 100  # Minimum characters per page to count as "has text"
 MAX_PAGES_TO_SAMPLE = 10  # Sample first N pages for classification
-METADATA_TEXT_LENGTH = 4096  # Characters to send to AI for classification (reduced to save tokens)
+METADATA_TEXT_LENGTH = 4096  # Characters to send to AI for classification (full pass)
+GATE_TEXT_LENGTH = 256       # Characters to send for quick gate (stage 1)
 
 # Fuzzy matching threshold for OEM names
 OEM_MATCH_THRESHOLD = 0.8  # 80% similarity required
@@ -130,6 +131,13 @@ class ClassificationResult(BaseModel):
     machine_type: Optional[str] = Field(default=None, description="Type of machine (e.g., 'robot', 'PLC', 'drive')")
     factory_module: Optional[str] = Field(default=None, description="Matched factory module ID from known list, or suggestion if new")
     reasoning: str = Field(description="Brief reasoning for classification")
+
+
+class GateResult(BaseModel):
+    """Fast gate decision based on minimal context to save tokens."""
+    verdict: str = Field(description="'other' if clearly not manufacturing; otherwise 'proceed'")
+    confidence: float = Field(description="Confidence 0.0-1.0 in the verdict")
+    reasoning: str = Field(description="One-line justification for the gate decision")
 
 
 # --- JSON Database Management ---
@@ -448,9 +456,86 @@ def extract_pdf_text_sample(pdf_path: Path, max_chars: int = METADATA_TEXT_LENGT
         return f"[Error extracting text: {e}]"
 
 
-def classify_pdf_single_shot(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker, oems_db: Dict, modules_db: Dict) -> ClassificationResult:
-    """Single-shot classification: relevance, OEM, machine, and module in one AI call."""
-    text_sample = extract_pdf_text_sample(pdf_path)
+def extract_pdf_title(pdf_path: Path) -> str:
+    """Extract PDF title from metadata if available, else use filename stem."""
+    try:
+        reader = PdfReader(pdf_path)
+        title = None
+        # pypdf exposes metadata via .metadata in recent versions
+        meta = getattr(reader, "metadata", None) or getattr(reader, "documentInfo", None)
+        if meta:
+            # Try common keys
+            title = getattr(meta, "title", None) or meta.get("/Title") if isinstance(meta, dict) else None
+        return str(title).strip() if title else pdf_path.stem
+    except Exception:
+        return pdf_path.stem
+
+
+def quick_gate_pdf(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker) -> GateResult:
+    """Stage 1: Cheap gate using title + first 256 chars to decide if 'other'."""
+    title = extract_pdf_title(pdf_path)
+    text_sample = extract_pdf_text_sample(pdf_path, max_chars=GATE_TEXT_LENGTH)
+
+    prompt = f"""You are gating PDFs for an industrial manufacturing equipment library.
+
+Given only the title and first 256 characters, decide if this document is clearly NOT related to industrial manufacturing equipment (robots, CNCs, PLCs, drives, conveyors, presses, sensors, motion control, etc.).
+
+Return 'other' ONLY if you are confident it is unrelated (e.g., novels, aviation history, firearms background checks, pesticide toxicology, general electronics catalogs without industrial equipment focus). If there's any reasonable chance it's manufacturing-related, return 'proceed'.
+
+Title: {title}
+Excerpt:
+{text_sample}
+
+Respond concisely."""
+
+    try:
+        program = LLMTextCompletionProgram.from_defaults(
+            output_cls=GateResult,
+            llm=llm,
+            prompt_template_str=prompt,
+            verbose=False
+        )
+        result = program()
+        tracker.record("gate_stage", prompt, str(result))
+        # Normalize verdict defensively
+        verdict = (result.verdict or "").strip().lower()
+        if verdict not in ("other", "proceed"):
+            verdict = "proceed"
+        result.verdict = verdict
+        # Clamp confidence
+        try:
+            c = float(result.confidence)
+            result.confidence = max(0.0, min(1.0, c))
+        except Exception:
+            result.confidence = 0.5
+        return result
+    except Exception as e:
+        # On failure, default to proceed to avoid false negatives
+        return GateResult(verdict="proceed", confidence=0.0, reasoning=f"Gate error: {e}")
+
+
+def classify_pdf_two_stage(pdf_path: Path, llm: AzureOpenAI, tracker: TokenTracker, oems_db: Dict, modules_db: Dict) -> ClassificationResult:
+    """Two-stage classification to save tokens.
+
+    Stage 1: Quick gate with title + 256 chars. If verdict='other' with confidence >= 0.6, stop.
+    Stage 2: Full 4096-char extraction of all structured fields.
+    """
+    # Stage 1: Gate
+    gate = quick_gate_pdf(pdf_path, llm, tracker)
+    if gate.verdict == "other" and gate.confidence >= 0.6:
+        return ClassificationResult(
+            is_manufacturing=False,
+            manufacturer=None,
+            is_new_oem=False,
+            model=None,
+            is_new_machine=False,
+            machine_type=None,
+            factory_module=None,
+            reasoning=f"Quick gate: other (conf {gate.confidence:.2f}). {gate.reasoning}"
+        )
+
+    # Stage 2: Full structured extraction
+    text_sample = extract_pdf_text_sample(pdf_path, max_chars=METADATA_TEXT_LENGTH)
     
     # Build known OEM list
     known_oems = [oem["name"] for oem in oems_db.get("manufacturers", [])]
@@ -480,7 +565,7 @@ Classify concisely."""
             verbose=False
         )
         result = program()
-        tracker.record("classify_single_shot", prompt, str(result))
+        tracker.record("classify_full", prompt, str(result))
         return result
     except Exception as e:
         print(f"Classification failed: {e}")
@@ -594,41 +679,38 @@ def organize_pdf(pdf_path: Path, manuals_dir: Path, stage: str, **kwargs) -> Pat
         dest_dir = sorted_base
     
     dest_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Preserve original filename
     dest_path = dest_dir / pdf_path.name
-    
-    # Handle duplicate filenames
+
+    # If an identical file already exists (by size), skip copying
+    try:
+        if dest_path.exists() and dest_path.stat().st_size == pdf_path.stat().st_size:
+            try:
+                print(f"Exists (same size), skipping copy: {dest_path}")
+            except Exception:
+                pass
+            return dest_path
+    except Exception:
+        pass
+
+    # Handle duplicate filenames by suffixing
     counter = 1
     while dest_path.exists() and dest_path != pdf_path:
         stem = pdf_path.stem
         dest_path = dest_dir / f"{stem}_{counter}{pdf_path.suffix}"
         counter += 1
-    
-    # Move file
-    if pdf_path != dest_path:
-        shutil.move(str(pdf_path), str(dest_path))
-        # Log save location
+
+    # Copy file (do not delete or move the source)
+    try:
+        shutil.copy2(str(pdf_path), str(dest_path))
         try:
-            print(f"Saved: {pdf_path.name} -> {dest_path}")
+            print(f"Copied: {pdf_path.name} -> {dest_path}")
         except Exception:
             pass
-        # Clean up empty source directories inside manuals after move
-        try:
-            src_dir = pdf_path.parent
-            manuals_root = manuals_dir
-            # Only attempt cleanup if source is under manuals_dir
-            if str(src_dir).startswith(str(manuals_root)):
-                while src_dir != manuals_root and src_dir.exists():
-                    # Stop if directory not empty
-                    if any(src_dir.iterdir()):
-                        break
-                    src_dir.rmdir()
-                    src_dir = src_dir.parent
-        except Exception:
-            # Ignore cleanup errors silently
-            pass
-    
+    except Exception as e:
+        print(f"Copy failed for {pdf_path} -> {dest_path}: {e}")
+
     return dest_path
 
 
@@ -676,8 +758,8 @@ def process_pdf_pipeline(pdf_path: Path, manuals_dir: Path, llm: Optional[AzureO
         oems_db = load_json_db(OEMS_JSON)
         modules_db = load_json_db(MODULES_JSON)
         
-        # Stage 2: Single-shot AI classification (relevance + OEM + machine + module)
-        result = classify_pdf_single_shot(pdf_path, llm, tracker, oems_db, modules_db)
+        # Stage 2: Two-stage AI classification (gate + full extraction)
+        result = classify_pdf_two_stage(pdf_path, llm, tracker, oems_db, modules_db)
         
         # Not manufacturing -> move to other
         if not result.is_manufacturing:

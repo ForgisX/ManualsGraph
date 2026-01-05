@@ -19,12 +19,172 @@
         }
       ],
       "created_date": "2025-12-03T17:29:59.866468"
+    },
+    {
+      "id": "cedar_rapids_engineering_860",
+      "name": "Cedar Rapids Engineering 860",
+      "manufacturer": "Cedar Rapids Engineering",
+      "oem_id": "cedar_rapids_engineering",
+      "model": "860",
+      "series": null,
+      "description": "The document describes a grinding machine used for cylinder head processing, which is manufacturing-related. The OEM 'Cedar Rapids Engineering' is not in the known list, and the machine model '860' appears to be new. Grinding machines align with the 'primary_machine' module.",
+      "machine_type": "grinding machine",
+      "factory_module": "primary_machine",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Cedar Rapids Engineering\\860\\KwikWayModel860OperatorsManual1969.pdf",
+          "added_date": "2025-12-03T19:42:32.215745",
+          "pages": 28,
+          "file_size_mb": 2.05
+        }
+      ],
+      "created_date": "2025-12-03T19:42:32.215745"
+    },
+    {
+      "id": "cedar_rapids_engineering_kwik_way_kk",
+      "name": "Cedar Rapids Engineering KWIK-WAY KK",
+      "manufacturer": "Cedar Rapids Engineering",
+      "oem_id": "cedar_rapids_engineering",
+      "model": "KWIK-WAY KK",
+      "series": null,
+      "description": "The PDF describes a valve face grinding machine used in manufacturing processes, specifically for machining valve faces. The manufacturer 'Cedar Rapids Engineering' is in the known OEM list, and the machine model 'KWIK-WAY KK' aligns with the description of primary manufacturing equipment.",
+      "machine_type": "grinding machine",
+      "factory_module": "primary_machine",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Cedar Rapids Engineering\\KWIK-WAY_KK\\KwikWayModelKKOperatorsManual1967.pdf",
+          "added_date": "2025-12-03T19:42:37.009242",
+          "pages": 20,
+          "file_size_mb": 1.21
+        }
+      ],
+      "created_date": "2025-12-03T19:42:37.009242"
+    },
+    {
+      "id": "sri_sarada_automation_systems_ssas_ffs6_15",
+      "name": "Sri Sarada Automation Systems SSAS-FFS6-15",
+      "manufacturer": "Sri Sarada Automation Systems",
+      "oem_id": "sri_sarada_automation_systems",
+      "model": "SSAS-FFS6-15",
+      "series": null,
+      "description": "The document is a manual for a vertical form fill and seal machine, which is used in industrial manufacturing for packaging. The manufacturer, Sri Sarada Automation Systems, is not in the known list of OEMs. The machine model SSAS-FFS6-15 and its type align with the packaging module.",
+      "machine_type": "form fill seal machine",
+      "factory_module": "packaging",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Sri Sarada Automation Systems\\SSAS-FFS6-15\\MANUALFORFFSMACHINEAztec.pdf",
+          "added_date": "2025-12-03T19:43:19.542841",
+          "pages": 40,
+          "file_size_mb": 1.2
+        }
+      ],
+      "created_date": "2025-12-03T19:43:19.542841"
+    },
+    {
+      "id": "albertson_and_company_1712_m",
+      "name": "Albertson and Company 1712-M",
+      "manufacturer": "Albertson and Company",
+      "oem_id": "albertson_and_company",
+      "model": "1712-M",
+      "series": null,
+      "description": "The document describes a grinding kit for valve seat maintenance, which is manufacturing-related. The OEM 'Albertson and Company' is not in the known list, and the machine model '1712-M' appears to be new. The machine type aligns with 'primary_machine' as it is used for core manufacturing processes.",
+      "machine_type": "grinding kit",
+      "factory_module": "primary_machine",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Albertson and Company\\1712-M\\SiouxValveSeatGrindingKitModel1712MManual.pdf",
+          "added_date": "2025-12-03T19:45:13.105200",
+          "pages": 26,
+          "file_size_mb": 1.35
+        }
+      ],
+      "created_date": "2025-12-03T19:45:13.105200"
+    },
+    {
+      "id": "biddle_instruments_250220_1_megger_null_balance_earth_tester",
+      "name": "Biddle Instruments 250220-1 Megger Null-Balance Earth Tester",
+      "manufacturer": "Biddle Instruments",
+      "oem_id": "biddle_instruments",
+      "model": "250220-1 Megger Null-Balance Earth Tester",
+      "series": null,
+      "description": "The document describes an industrial instrument (earth resistance tester) used in electrical grounding systems, which is relevant to manufacturing and industrial applications. The manufacturer, Biddle Instruments, is not in the known OEM list.",
+      "machine_type": "inspection",
+      "factory_module": "inspection",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Biddle Instruments\\250220-1_Megger_Null-Balance_Earth_Tester\\GettingDownToEarthBiddleInstrumentsApril1981.pdf",
+          "added_date": "2025-12-03T19:53:30.954362",
+          "pages": 53,
+          "file_size_mb": 1.77
+        }
+      ],
+      "created_date": "2025-12-03T19:53:30.954362"
+    },
+    {
+      "id": "loncin_motor_co_ltd_g120f_g160f_g200f",
+      "name": "Loncin Motor Co., LTD G120F/G160F/G200F",
+      "manufacturer": "Loncin Motor Co., LTD",
+      "oem_id": "loncin_motor_co_ltd",
+      "model": "G120F/G160F/G200F",
+      "series": null,
+      "description": "The PDF describes shop manuals for motor systems, including wiring diagrams, torque values, and reduction systems, which are relevant to industrial manufacturing equipment. The OEM 'Loncin Motor Co., LTD' is not in the known list.",
+      "machine_type": "drive",
+      "factory_module": "drives_motors",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Loncin Motor Co., LTD\\G120F_G160F_G200F\\gx-160-sm.pdf",
+          "added_date": "2025-12-03T19:53:40.537613",
+          "pages": 64,
+          "file_size_mb": 1.89
+        }
+      ],
+      "created_date": "2025-12-03T19:53:40.537613"
+    },
+    {
+      "id": "yokogawa_hewlett_packard_4145a",
+      "name": "Yokogawa-Hewlett-Packard 4145A",
+      "manufacturer": "Yokogawa-Hewlett-Packard",
+      "oem_id": "yokogawa_hewlett_packard",
+      "model": "4145A",
+      "series": null,
+      "description": "The document describes a semiconductor parameter analyzer, which is related to manufacturing processes in the electronics industry. The manufacturer Yokogawa-Hewlett-Packard is not in the known list of OEMs, and the machine model 4145A appears to be new.",
+      "machine_type": "semiconductor parameter analyzer",
+      "factory_module": null,
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Yokogawa-Hewlett-Packard\\4145A\\HP4145AUserAndServiceManual.pdf",
+          "added_date": "2025-12-03T19:54:03.211036",
+          "pages": 269,
+          "file_size_mb": 10.37
+        }
+      ],
+      "created_date": "2025-12-03T19:54:03.211036"
+    },
+    {
+      "id": "liebherr_machines_bulle_s_a_d_904_906_914_916_924_926",
+      "name": "Liebherr-Machines-Bulle S.A. D 904 / 906 / 914 / 916 / 924 / 926",
+      "manufacturer": "Liebherr-Machines-Bulle S.A.",
+      "oem_id": "liebherr_machines_bulle_s_a",
+      "model": "D 904 / 906 / 914 / 916 / 924 / 926",
+      "series": null,
+      "description": "The PDF is related to industrial manufacturing equipment, specifically diesel engines used in machinery. The manufacturer, Liebherr-Machines-Bulle S.A., is not in the known OEM list, and the machine model and type are clearly specified.",
+      "machine_type": "engine",
+      "factory_module": "drives_motors",
+      "manuals": [
+        {
+          "path": "C:\\Users\\Jonaspetersen\\dev\\ManualsGraph\\sorted_manuals\\digital\\manufacturing\\Liebherr-Machines-Bulle S.A.\\D_904_906_914_916_924_926\\413241026-Liebherr-Diesel-Engines-Service-Manual-904-926-pdf_text.pdf",
+          "added_date": "2025-12-03T19:59:54.300276",
+          "pages": 183,
+          "file_size_mb": 10.66
+        }
+      ],
+      "created_date": "2025-12-03T19:59:54.300276"
     }
   ],
   "metadata": {
-    "last_updated": "2025-12-03T17:29:59.866468",
+    "last_updated": "2025-12-03T19:59:54.300276",
     "version": "1.0",
-    "total_machines": 1,
+    "total_machines": 9,
     "note": "This file will be populated automatically as PDFs are processed"
   }
 }

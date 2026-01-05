@@ -1,5 +1,20 @@
-site_name: Xelerit Base Repo
+site_name: ManualsGraph
 nav:
     - Home: index.md
+    - Getting Started:
+        - Setup: Setup.md
+        - Pipeline Guide: Pipeline.md
+    - Reference:
+        - Scripts: Reference/Scripts.md
+        - Data Schema: Reference/Data-Schema.md
+    - Research:
+        - Strategy: Research/Strategy.md
 theme:
-  name: material 
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
